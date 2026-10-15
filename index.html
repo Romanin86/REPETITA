@@ -2063,6 +2063,11 @@
   .choix-option svg{width:20px; height:20px; flex-shrink:0; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;}
   .choix-option:disabled{opacity:.45; cursor:default;}
   .modal-scrim.choix-scrim{z-index:95;}
+  /* ===== 9.5 : générateur « D'après un document » ===== */
+  .gen-doc{margin:8px 0 2px; padding:12px 14px; border-radius:12px; background:var(--bg); border:1px solid var(--border);}
+  .gen-doc .gen-deux{margin-top:0;}
+  .gen-doc .field:last-child{margin-bottom:0;}
+  .gen-doc > .gen-aide-courte{display:block; margin-top:2px;}
 </style>
 </head>
 <body>
@@ -3013,7 +3018,24 @@
               <div class="field">
                 <label for="gen-sujet">{{ gen.philosophie === 'phrases' ? 'Thème des phrases' : 'Que voulez-vous apprendre ?' }} <span class="gen-requis">obligatoire</span></label>
                 <input spellcheck="true" lang="fr" id="gen-sujet" type="text" v-model="gen.sujet" :placeholder="gen.philosophie === 'phrases' ? 'ex. la vie au collège, la cantine, le sport' : 'ex. La Seconde Guerre mondiale, programme de 3e'">
-                <small class="gen-aide-courte">{{ gen.philosophie === 'phrases' ? "Le cadre des phrases : des situations que les élèves connaissent." : "Un chapitre, un thème, un niveau : plus c'est précis, meilleur est le résultat." }}</small>
+                <small class="gen-aide-courte">{{ gen.document ? "Le titre ou le thème du document suffit." : gen.philosophie === 'phrases' ? "Le cadre des phrases : des situations que les élèves connaissent." : "Un chapitre, un thème, un niveau : plus c'est précis, meilleur est le résultat." }}</small>
+              </div>
+              <label class="school-safe-toggle gen-doc-case"><input type="checkbox" v-model="gen.document"><span>Le contenu vient d'un document que je joins à l'IA (cours, chapitre, texte étudié…)</span></label>
+              <div class="gen-doc" v-if="gen.document">
+                <div class="gen-deux">
+                  <div class="field">
+                    <label for="gen-doc-nom">Nom du document <span class="gen-facultatif">facultatif</span></label>
+                    <input spellcheck="false" id="gen-doc-nom" type="text" v-model="gen.documentNom" placeholder="ex. chapitre-3-revolution.pdf">
+                  </div>
+                  <div class="field">
+                    <label for="gen-doc-mode">Ce que l'IA peut ajouter</label>
+                    <select id="gen-doc-mode" v-model="gen.documentMode">
+                      <option value="strict">Rien : seulement le document</option>
+                      <option value="completer">Le nécessaire, marqué « hors-document »</option>
+                    </select>
+                  </div>
+                </div>
+                <small class="gen-aide-courte">Joignez le document et le modèle dans le même message, à une IA qui accepte les fichiers (souvent avec un compte). Un chapitre à la fois plutôt qu'un manuel entier. Le document part chez le service d'IA : rien de personnel sur les élèves.</small>
               </div>
               <div class="gen-deux">
                 <div class="field">
@@ -6294,7 +6316,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 3000);
     return "telecharge";
   }
-  var APP_VERSION = "9.4";
+  var APP_VERSION = "9.5";
   /* Instantanés de sauvegarde : uniquement le TEXTE (les images sont déjà stockées à part et
      pèseraient trop pour être dupliquées). Filet contre les fausses manœuvres, pas un
      remplacement de l'export complet. */
@@ -6461,7 +6483,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       genre: "aventure", heros: "", langueEtrangere: false, langueCible: "anglais", narration: "francais", niveauCible: "A2",
       longueurPassage: "normale",
       niveauLecture: "ce1", motsMin: 3, motsMax: 8, constructions: ["sv","svc","lieu","temps","negation"], prenoms: "",
-      titrePhrase: "question", indice: "structure", tempsVerbes: "present" };
+      titrePhrase: "question", indice: "structure", tempsVerbes: "present",
+      document: false, documentNom: "", documentMode: "strict" };
   }
   function libelleDe(liste, cle){ for (var k = 0; k < liste.length; k++) if (liste[k][0] === cle) return liste[k][1]; return cle; }
 
@@ -6646,15 +6669,47 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   function ligneVolume(g, repartition, plafond, annonce){
     if (g.volume === "auto")
-      return "Volume : à toi d'estimer combien de lignes il faut pour couvrir le sujet au niveau demandé, sans remplissage ni redite, " + plafond + " au plus, " + repartition + ". " + annonce;
+      return "Volume : à toi d'estimer combien de lignes il faut pour couvrir " + (g.document ? "tout le document" : "le sujet") + " au niveau demandé, sans remplissage ni redite, " + plafond + " au plus, " + repartition + ". " + annonce;
     return "Volume : environ " + g.volume + " lignes, " + repartition + ".";
+  }
+  /* « D'après un document » : la première phrase annonce les deux pièces jointes, et une section
+     dit comment s'en servir. Case décochée, rien ne change dans le prompt. */
+  function phraseJointes(g){
+    if (!g || !g.document) return "Je joins un fichier modèle vide : respecte exactement ses colonnes.";
+    var nom = String(g.documentNom || "").trim();
+    return "Je joins deux fichiers : un modèle vide, dont tu respectes exactement les colonnes, et le document source" + (nom ? " « " + nom + " »" : "") + ", présenté plus bas.";
+  }
+  function blocDocument(g){
+    if (!g || !g.document) return [];
+    var nom = String(g.documentNom || "").trim(), complet = g.documentMode === "completer", ph = g.philosophie;
+    var L = ["", "LE DOCUMENT SOURCE — il prime sur tes propres connaissances"];
+    L.push("Le document joint" + (nom ? " « " + nom + " »" : "") + " est la source de " +
+      (ph === "histoire" ? "tout ce qu'il faut apprendre dans l'histoire" : ph === "phrases" ? "toutes les phrases" : "toutes les fiches") + ".");
+    var n = 0, r = function(t){ n++; L.push(n + ". " + t); };
+    r("Lis-le en entier avant d'écrire la moindre ligne. Si tu ne peux pas le lire (fichier absent ou illisible, page scannée sans texte), arrête-toi et dis-le-moi : n'écris rien de mémoire.");
+    var ajout = "Tu peux ajouter le strict nécessaire pour comprendre, mais chaque ligne qui ne vient pas du document porte l'étiquette « hors-document » dans la colonne tags, une ligne sur cinq au plus.";
+    if (ph === "histoire") r("Le héros, les lieux et les péripéties sont inventés ; ce qu'il faut apprendre — les colonnes objet et contenu — vient du document. " +
+      (complet ? ajout : "Aucun fait, aucune date, aucun nom à apprendre qui n'y figure pas, même s'il te semble évident."));
+    else if (ph === "phrases") r("Les phrases reprennent les idées, les mots et, s'il en a, les personnages du document, simplifiés au niveau de lecture demandé. " +
+      (complet ? "Tu peux compléter avec des situations proches, en restant dans son univers." : "Rien d'autre : aucune idée qui ne s'y trouve pas.") +
+      " Les consignes de longueur et la règle d'or ci-dessous restent impératives.");
+    else r(complet ? "Le document d'abord. " + ajout : "Tout vient du document : aucun fait, aucune date, aucun exemple, aucune explication qui n'y figure pas, même s'il te semble évident. Mieux vaut une fiche de moins qu'une fiche inventée.");
+    if (ph !== "phrases") r("Garde son vocabulaire, ses définitions et ses notations : ce sont ceux que les élèves rencontrent en classe.");
+    if (ph === "comprendre") r("Pars de son plan pour les étapes. S'il ne va pas des fondations vers les conséquences, réordonne, et dis-le-moi en une phrase avant le tableau.");
+    else if (ph === "histoire") r("Les notions arrivent dans l'histoire dans l'ordre où le document les présente.");
+    else if (ph === "phrases") r("Les paliers suivent la difficulté des phrases, pas l'ordre du document.");
+    else r("Suis son plan : ses grandes parties deviennent les salles, dans son ordre, sauf si je t'ai donné les salles plus haut.");
+    r("Couvre tout ce qui est à retenir, sans redite. Laisse de côté ce qui n'est pas du contenu : sommaire, consignes d'exercices, légendes décoratives, mentions légales, numéros de page.");
+    r("Si le volume demandé ne suffit pas à tout couvrir, garde l'essentiel et dis-moi, en dehors du tableau et en une ou deux lignes, ce que tu as laissé de côté.");
+    r("Si le document contient une erreur manifeste, ne la corrige pas en silence : reste fidèle au document et signale l'erreur en dehors du tableau.");
+    return L;
   }
   function construirePromptComprendre(g, opts){
     var expert = g.niveau === "expert", guide = g.niveau !== "express";
     var L = [];
     var p = function(t){ L.push(t); };
     var n = 0, r = function(t){ n++; p(n + ". " + t); };
-    p("Tu vas préparer une base de révision pour l'application Palais Mental, un outil de mémorisation par répétition espacée. Lis toutes les consignes avant de commencer. Je joins un fichier modèle vide : respecte exactement ses colonnes.");
+    p("Tu vas préparer une base de révision pour l'application Palais Mental, un outil de mémorisation par répétition espacée. Lis toutes les consignes avant de commencer. " + phraseJointes(g));
     p("");
     p("APPROCHE : COMPRENDRE POUR RETENIR");
     p("Je ne veux pas une liste de faits isolés, mais une compréhension qui se construit. Chaque fiche fait comprendre une idée et s'appuie sur les précédentes. Ce qui est compris se retient mieux, parce que tout se relie, et il reste beaucoup moins à apprendre par cœur.");
@@ -6666,11 +6721,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     p("Langue du contenu : " + (g.langue || "français") + ".");
     if (guide){
       p("Nom du palais : " + (String(g.palais || "").trim() || "à toi de le proposer, court et clair") + ".");
-      p("Étapes : " + (String(g.salles || "").trim() ? "dans cet ordre — " + g.salles.trim().replace(/\s*\n\s*/g, " · ") : "à toi de les proposer, 5 à 8 étapes de 6 à 12 fiches, des fondations vers les conséquences") + ".");
+      p("Étapes : " + (String(g.salles || "").trim() ? "dans cet ordre — " + g.salles.trim().replace(/\s*\n\s*/g, " · ") : (g.document ? "à toi de les proposer à partir du plan du document, 5 à 8 étapes, des fondations vers les conséquences" : "à toi de les proposer, 5 à 8 étapes de 6 à 12 fiches, des fondations vers les conséquences")) + ".");
     }
     if (expert && String(g.prerequis || "").trim()) p("Ce que les élèves savent déjà : " + g.prerequis.trim() + ". Appuie-toi dessus sans le réexpliquer.");
     if (expert && String(g.reference || "").trim()) p("Référence à suivre : " + g.reference.trim() + ".");
     if (expert && String(g.exclure || "").trim()) p("À éviter ou à privilégier : " + g.exclure.trim() + ".");
+    blocDocument(g).forEach(p);
     p("");
     p("LA PROGRESSION — le plus important");
     r("Les salles sont les étapes de la compréhension, dans l'ordre : des fondations vers les mécanismes, puis vers les conséquences et les applications.");
@@ -6751,7 +6807,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var passage = g.longueurPassage === "courte" ? "une ou deux phrases" : "deux ou trois phrases au plus";
     // Les lignes d'exemple suivent les réglages : sans images, leur colonne prompt est vide, comme le dit la consigne.
     var ex = function(l){ if (g.images) return l; var col = l.split(";"); col[5] = ""; return col.join(";"); };
-    p("Tu vas écrire une histoire qui sert à apprendre, puis la livrer sous forme de tableau pour l'application Palais Mental, un outil de mémorisation par répétition espacée. Lis toutes les consignes avant de commencer. Je joins un fichier modèle vide : respecte exactement ses colonnes.");
+    p("Tu vas écrire une histoire qui sert à apprendre, puis la livrer sous forme de tableau pour l'application Palais Mental, un outil de mémorisation par répétition espacée. Lis toutes les consignes avant de commencer. " + phraseJointes(g));
     p("");
     p("CE QUE JE VEUX : UNE VRAIE HISTOIRE");
     p("Pas une liste de questions : une histoire suivie, avec un héros, un but, des obstacles, des rebondissements et une fin. Le héros traverse plusieurs lieux ; dans chaque lieu, il vit des moments qui lui font rencontrer, une par une, les choses à apprendre. Lus dans l'ordre, les passages du tableau racontent l'histoire du début à la fin.");
@@ -6771,6 +6827,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     p("Héros : " + (guide && String(g.heros || "").trim() ? g.heros.trim() : "à toi de l'inventer, proche de l'âge et du quotidien du public") + ".");
     if (expert && String(g.reference || "").trim()) p("Référence à suivre : " + g.reference.trim() + ".");
     if (expert && String(g.exclure || "").trim()) p("À éviter ou à privilégier : " + g.exclure.trim() + ".");
+    blocDocument(g).forEach(p);
     p("");
     p("COMMENT PROCÉDER — deux étapes, dans cet ordre");
     p("ÉTAPE 1 — LE PLAN. Commence ta réponse par le plan de l'histoire, en 5 à 8 lignes : une ligne par lieu, qui dit ce qui arrive au héros et ce qu'il y rencontre. Vérifie qu'il y a une vraie intrigue : un but, des obstacles, une fin.");
@@ -6876,7 +6933,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var langueFls = g.flsLangue === "autre" ? (String(g.flsAutre || "").trim() || "la langue d'origine des élèves") : g.flsLangue;
     var prenoms = String(g.prenoms || "").trim(), palais = String(g.palais || "").trim(), salles = String(g.salles || "").trim();
     var cons = guide ? GEN_CONSTRUCTIONS.filter(function(x){ return (g.constructions || []).indexOf(x[0]) !== -1; }) : [];
-    p("Tu vas préparer des phrases à reconstruire pour l'application Palais Mental, un outil de révision par répétition espacée. Lis toutes les consignes avant de commencer. Je joins un fichier modèle vide : respecte exactement ses colonnes.");
+    p("Tu vas préparer des phrases à reconstruire pour l'application Palais Mental, un outil de révision par répétition espacée. Lis toutes les consignes avant de commencer. " + phraseJointes(g));
     p("");
     p("CE QUE JE VEUX : DES PHRASES À REMETTRE DANS L'ORDRE");
     p("Mes élèves apprennent à lire et à construire des phrases. En révision, l'application découpe chaque phrase en étiquettes-mots, les mélange, et l'élève les remet dans l'ordre. Les phrases sont d'abord très simples, puis s'allongent de palier en palier : chaque salle est une marche.");
@@ -6897,6 +6954,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     p("Temps des verbes : " + (temps === "passe" ? "le présent, puis le passé composé dans les derniers paliers" : temps === "futur" ? "le présent, puis le passé composé et le futur proche (« va » + verbe) dans les derniers paliers" : "le présent uniquement") + ".");
     if (expert && String(g.reference || "").trim()) p("Référence à suivre : " + g.reference.trim() + ".");
     if (expert && String(g.exclure || "").trim()) p("À éviter ou à privilégier : " + g.exclure.trim() + ".");
+    blocDocument(g).forEach(p);
     p("");
     p("LA RÈGLE D'OR : UNE SEULE BONNE RÉPONSE");
     p("L'application coupe la phrase à chaque espace et n'accepte que l'ordre exact de la colonne contenu.");
@@ -6995,7 +7053,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var expert = g.niveau === "expert", guide = g.niveau !== "express";
     var L = [];
     var p = function(t){ L.push(t); };
-    p("Tu vas préparer une base de révision pour l'application Palais Mental, un outil de mémorisation par répétition espacée. Lis toutes les consignes avant de commencer. Je joins un fichier modèle vide : respecte exactement ses colonnes.");
+    p("Tu vas préparer une base de révision pour l'application Palais Mental, un outil de mémorisation par répétition espacée. Lis toutes les consignes avant de commencer. " + phraseJointes(g));
     p("");
     p("MON SUJET");
     p("Sujet : " + g.sujet.trim());
@@ -7004,11 +7062,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     p("Langue du contenu : " + (g.langue || "français") + ".");
     if (guide){
       p("Nom du palais : " + (g.palais.trim() || "à toi de le proposer, court et clair") + ".");
-      p("Salles : " + (g.salles.trim() ? g.salles.trim().replace(/\s*\n\s*/g, " · ") : "à toi de les proposer, 6 à 10 salles de 8 à 15 objets") + ".");
+      p("Salles : " + (g.salles.trim() ? g.salles.trim().replace(/\s*\n\s*/g, " · ") : (g.document ? "les grandes parties du document, dans son ordre" : "à toi de les proposer, 6 à 10 salles de 8 à 15 objets")) + ".");
       if (g.types.length) p("Types de contenu à privilégier : " + g.types.map(function(t){ return libelleDe(GEN_TYPES, t).toLowerCase(); }).join(", ") + ".");
     }
     if (expert && g.reference.trim()) p("Référence à suivre : " + g.reference.trim() + ".");
     if (expert && g.exclure.trim()) p("À éviter ou à privilégier : " + g.exclure.trim() + ".");
+    blocDocument(g).forEach(p);
     p("");
     p("FORMAT — impératif");
     p("Neuf colonnes, dans cet ordre, en première ligne : palais | salle | objet | contenu | mnemo | prompt | tags | favori | image");
@@ -7085,6 +7144,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       ["Raconter une histoire", "Approche expérimentale du générateur : le palais devient le décor d'une histoire, chaque salle un lieu que traverse le héros. Le passage de récit va dans la colonne mnémo : il se lit en parcours et sert d'indice en révision.", "Générateur de prompt → Votre approche"],
       ["Coller un tableau", "Importer directement la réponse d'une IA, copiée dans la conversation : l'application retrouve le tableau, même entouré de texte, sans passer par un fichier ni par un tableur.", "Nouveau palais · Générateur de prompt · Paramètres → Import / export tableur"],
       ["Phrases pas à pas", "Approche expérimentale du générateur : des phrases simples, de plus en plus longues, que l'élève reconstruit en remettant les mots dans l'ordre. Chaque salle est un palier.", "Générateur de prompt → Votre approche"],
+      ["D'après un document", "Option du générateur : le palais est tiré d'un document que vous joignez à l'IA — cours, chapitre, texte étudié —, sans rien y ajouter, ou en marquant chaque ajout de l'étiquette « hors-document ».", "Générateur de prompt → Le sujet"],
       ["Comprendre pour retenir", "Approche expérimentale du générateur : une suite logique de questions — pourquoi, comment, que se passe-t-il si — qui s'appuient les unes sur les autres. Le parcours du palais devient une progression.", "Générateur de prompt → Votre approche"],
       ["Lignes « Méthode » et « Piège »", "Fiches particulières : une démarche en trois étapes, ou une erreur fréquente et sa correction.", ""],
       ["Dupliquer un palais", "En faire une copie complète, pour trier sans risque de perdre l'original.", "Menu « Plus » d'un palais"],
@@ -10578,6 +10638,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (["structure","verbe","aucun"].indexOf(g.indice) === -1) g.indice = "structure";
         if (["present","passe","futur"].indexOf(g.tempsVerbes) === -1) g.tempsVerbes = "present";
         g.prenoms = texteBorne(g.prenoms, 120);
+        g.document = g.document === true;
+        g.documentNom = texteBorne(g.documentNom, 120);
+        if (["strict","completer"].indexOf(g.documentMode) === -1) g.documentMode = "strict";
         g.volume = volumeValide(g.volume) || "120";
         this.volumeSaisieLibre = g.volume !== "auto" && ["30","50","80","120","200"].indexOf(g.volume) === -1;
         if (!GEN_GENRES.some(function(x){ return x[0] === g.genre; })) g.genre = "aventure";
