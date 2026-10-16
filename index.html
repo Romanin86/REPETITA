@@ -3998,7 +3998,7 @@
         <div class="settings-block grp-5">
           <h3>Télécharger l'application <button type="button" class="aide-btn" @click.stop="basculerAideSection($event)" aria-expanded="false" aria-label="Afficher l'explication" data-info="Afficher ou masquer l'explication">?</button><span class="resume-section">Garder une copie de l'application, pour l'utiliser hors ligne ou la donner.</span></h3>
           <p class="sub explication">La copie est l'application complète, en un seul fichier : elle fonctionne sans connexion, depuis le disque ou une clé USB, avec Firefox, Chrome ou Edge. Elle est récupérée telle que le site la sert : la page que vous voyez a été transformée en démarrant, et l'enregistrer telle quelle donnerait un fichier abîmé.</p>
-          <p class="stock-hint">Le fichier porte le numéro de version. La dernière version est toujours sur <a class="lien-site" :href="SITE_OFFICIEL" target="_blank" rel="noopener">romanin86.github.io/REPETITA</a>.</p>
+          <p class="stock-hint">Le fichier porte le numéro de version. La dernière version est toujours sur <a class="lien-site" :href="DEPOT_GITHUB" target="_blank" rel="noopener">github.com/Romanin86/REPETITA</a>.</p>
           <p class="stock-hint" v-if="!estFichierLocal">La copie démarre vide : vos palais restent liés à cette adresse. Pour les y retrouver, faites une sauvegarde complète, puis importez-la dans la copie.</p>
           <p class="stock-hint" v-else>Vous utilisez déjà une copie locale : ce fichier est l'application. Pour la donner, copiez-le simplement.</p>
           <div class="btn-row">
@@ -6316,7 +6316,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 3000);
     return "telecharge";
   }
-  var APP_VERSION = "9.5";
+  var APP_VERSION = "9.6";
   /* Instantanés de sauvegarde : uniquement le TEXTE (les images sont déjà stockées à part et
      pèseraient trop pour être dupliquées). Filet contre les fausses manœuvres, pas un
      remplacement de l'export complet. */
@@ -6662,6 +6662,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   /* Adresse publique de l'application : dans chaque copie téléchargée et chaque fichier élève. */
   var SITE_OFFICIEL = "https://romanin86.github.io/REPETITA/";
+  /* Projet GitHub : code, notes de version, dernière version à télécharger. */
+  var DEPOT_GITHUB = "https://github.com/Romanin86/REPETITA";
   function volumeValide(v){
     if (v === "auto") return "auto";
     var n = parseInt(v, 10);
@@ -7712,7 +7714,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         sessionsSauvees: [],
         detailOrigine: "", creationOuverte: false, cleRefusee: false, collageOuvert: false, collageTexte: "", importEnCours: false, volumeSaisieLibre: false, telechargementApp: false, pileVues: [], reglagesRevOuvert: false, reglagesParcOuvert: false,
         lecture: { auto: false, vitesse: 1, enLigne: false }, voixVersion: 0, LANGUES_LECTURE: LANGUES_LECTURE, lectureDisponible: Voix.dispo(),
-        palaceDraftVoixTitre: "fr-FR", palaceDraftVoixContenu: "fr-FR", salleDraftVoix: "", gloRecherche: "", GLOSSAIRE: GLOSSAIRE, recapImport: null, iasPerso: [], iasModifs: {}, iasModaleOuverte: false, iaEditionCle: null, GEN_QUESTIONS: GEN_QUESTIONS, GEN_GENRES: GEN_GENRES, SITE_OFFICIEL: SITE_OFFICIEL, GEN_LECTURE: GEN_LECTURE, GEN_CONSTRUCTIONS: GEN_CONSTRUCTIONS,
+        palaceDraftVoixTitre: "fr-FR", palaceDraftVoixContenu: "fr-FR", salleDraftVoix: "", gloRecherche: "", GLOSSAIRE: GLOSSAIRE, recapImport: null, iasPerso: [], iasModifs: {}, iasModaleOuverte: false, iaEditionCle: null, GEN_QUESTIONS: GEN_QUESTIONS, GEN_GENRES: GEN_GENRES, SITE_OFFICIEL: SITE_OFFICIEL, DEPOT_GITHUB: DEPOT_GITHUB, GEN_LECTURE: GEN_LECTURE, GEN_CONSTRUCTIONS: GEN_CONSTRUCTIONS,
         questionsModifs: {}, questionsPerso: [], questionsModaleOuverte: false, qEditionCle: null,
         qEditionLibelle: "", qEditionDescription: "", qEditionExemple: "", qNouvLibelle: "", qNouvDescription: "", qNouvExemple: "", iaNom: "", iaUrl: "", iaSansCompte: false, iaEditionNom: "", iaEditionUrl: "", iaEditionSansCompte: false,
         gen: genParDefaut(), genNomSauvegarde: "", genRenommage: null, genRenommageNom: "", genOuvert: null,
